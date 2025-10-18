@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -25,7 +26,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Lab08Theme {
-                // ✅ Configuración de Room con migración y acceso en hilo principal
                 val db = Room.databaseBuilder(
                     applicationContext,
                     TaskDatabase::class.java,
@@ -47,11 +47,25 @@ class MainActivity : ComponentActivity() {
 fun TaskScreen(viewModel: TaskViewModel) {
     val tasks by viewModel.tasks.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+
     var newTaskDescription by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
+    var filterOption by remember { mutableStateOf("Todas") }
 
     var showEditDialog by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<Task?>(null) }
     var editedDescription by remember { mutableStateOf("") }
+
+    // 🔍 Filtrar tareas según el estado o la búsqueda
+    val filteredTasks = tasks.filter {
+        val matchesFilter = when (filterOption) {
+            "Completadas" -> it.isCompleted
+            "Pendientes" -> !it.isCompleted
+            else -> true
+        }
+        val matchesSearch = it.description.contains(searchQuery, ignoreCase = true)
+        matchesFilter && matchesSearch
+    }
 
     Scaffold(
         topBar = {
@@ -66,7 +80,7 @@ fun TaskScreen(viewModel: TaskViewModel) {
                     .padding(padding)
                     .padding(16.dp)
             ) {
-                // 🔹 Campo de texto para nueva tarea
+                // 🔹 Campo de nueva tarea
                 TextField(
                     value = newTaskDescription,
                     onValueChange = { newTaskDescription = it },
@@ -88,10 +102,50 @@ fun TaskScreen(viewModel: TaskViewModel) {
                     Text("Agregar tarea")
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // 🔹 Lista de tareas
-                tasks.forEach { task ->
+                // 🔍 Barra de búsqueda
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Buscar tareas") },
+                    trailingIcon = { Icon(Icons.Filled.Search, contentDescription = "Buscar") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 🔽 Filtros
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Button(
+                        onClick = { filterOption = "Todas" },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (filterOption == "Todas") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                        )
+                    ) { Text("Todas") }
+
+                    Button(
+                        onClick = { filterOption = "Pendientes" },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (filterOption == "Pendientes") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                        )
+                    ) { Text("Pendientes") }
+
+                    Button(
+                        onClick = { filterOption = "Completadas" },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (filterOption == "Completadas") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                        )
+                    ) { Text("Completadas") }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 🔹 Lista de tareas filtradas y buscadas
+                filteredTasks.forEach { task ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
